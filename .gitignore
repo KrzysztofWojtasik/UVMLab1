@@ -1,0 +1,14 @@
+# Vivado/xsim
+.Xil/
+xsim.dir/
+*.jou
+*.log
+*.pb
+*.wdb
+webtalk*
+xelab.pb
+xvlog.pb
+
+# edytory
+*~
+*.swp
