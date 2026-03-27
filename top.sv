@@ -1,16 +1,16 @@
 module top;
 
     logic clk;
-    logic rst;
+    logic rstn;
 
     tb_top u_tb (
+        .clk  (clk),
+        .rstn (rstn)
     );
 
     dut u_dut (
+        .clk  (clk),
+        .rstn (rstn)
     );
-
-	initial begin
-		$display("Hello world");
-	end
 
 endmodule
