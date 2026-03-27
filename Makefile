@@ -14,7 +14,7 @@ XSIM_OPTS  := -runall
 
 .PHONY: all rtl verif elab sim clean
 
-all: rtl verif elab sim
+all: rtl verif elab sim clean
 
 rtl:
 	$(XVLOG) $(XVLOG_OPTS) -f $(RTL_FLIST)
