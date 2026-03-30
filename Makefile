@@ -50,4 +50,4 @@ sim: logs
 	@echo "[OK] Simulation done. Log: $(SIM_LOG)"
 
 clean:
-	rm -rf .Xil xsim.dir *.jou *.log *.pb *.wdb webtalk* *~ $(LOGDIR)
+	rm -rf .Xil xsim.dir *.jou *.log *.pb *.wdb webtalk* *~ $(LOGDIR) *:Zone.Identifier

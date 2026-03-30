@@ -1,6 +1,52 @@
-module dut(
-    input logic clk,
-    input logic rstn
+module dut (
+    input  logic        clk,
+    input  logic        nrst,
+
+    input  logic        start,
+    input  logic        rw,
+    input  logic        read_man_id,
+    input  logic [15:0] mem_addr,
+    input  logic [7:0]  write_data,
+    output logic [7:0]  read_data,
+    output logic [23:0] man_id,
+    output logic        busy,
+    output logic        done
 );
+
+    logic scl;
+    tri1  sda;
+
+    logic a1;
+    logic a2;
+    logic wp;
+
+    assign a1 = 1'b0;
+    assign a2 = 1'b0;
+    assign wp = 1'b0;
+
+    ctrl u_ctrl (
+        .clk         (clk),
+        .nrst        (nrst),
+        .start       (start),
+        .rw          (rw),
+        .read_man_id (read_man_id),
+        .mem_addr    (mem_addr),
+        .write_data  (write_data),
+        .read_data   (read_data),
+        .man_id      (man_id),
+        .busy        (busy),
+        .done        (done),
+        .scl         (scl),
+        .sda         (sda)
+    );
+
+    M24CSM01 u_eeprom (
+        .A1    (a1),
+        .A2    (a2),
+        .WP    (wp),
+        .SDA   (sda),
+        .SCL   (scl),
+        .RESET (~nrst)
+    );
 
 endmodule
