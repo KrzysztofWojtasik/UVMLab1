@@ -4,6 +4,7 @@ module ctrl (
 
     input  logic        read_man_id,
     input  logic        read_cfg_status,
+    input  logic        read_eeprom,
 
     input  logic        start,
     input  logic        rw,
@@ -42,6 +43,11 @@ module ctrl (
     LOAD_TX_CFG_AL,
     LOAD_TX_B1,
 
+    LOAD_TX_EE_WR,
+    LOAD_TX_EE_AH,
+    LOAD_TX_EE_AL,
+    LOAD_TX_EE_RD,
+
 
     TX_SCL_LOW,
     TX_DATA_SETUP,
@@ -66,6 +72,8 @@ module ctrl (
     READ_STORE_BYTE,
     
     READ_CFG_STORE_BYTE,
+
+    READ_EE_STORE_BYTE,
 
     MASTER_ACK_SETUP,
     MASTER_ACK_LOW,
@@ -92,6 +100,7 @@ module ctrl (
 
     logic op_cfg_status;
     logic op_man_id;
+    logic op_read_eeprom;
 
     // I2C open-drain:
     // 0 -> ciągnij linię do zera
@@ -123,6 +132,7 @@ module ctrl (
 
             op_man_id     <= 1'b0;
             op_cfg_status <= 1'b0;
+            op_read_eeprom <= 1'b0;
         end
         else begin
             done <= 1'b0;
@@ -143,6 +153,7 @@ module ctrl (
                         op_cfg_status <= 1'b0;
                         state      <= START_1;
                     end
+
                     else if (start && read_cfg_status) begin
                         busy          <= 1'b1;
                         cfg_status_hi <= 8'h00;
@@ -150,6 +161,15 @@ module ctrl (
                         op_man_id     <= 1'b0;
                         op_cfg_status <= 1'b1;
                         state         <= START_1;
+                    end
+
+                    else if (start && read_eeprom) begin
+                        busy           <= 1'b1;
+                        read_data      <= 8'h00;
+                        op_man_id      <= 1'b0;
+                        op_cfg_status  <= 1'b0;
+                        op_read_eeprom <= 1'b1;
+                        state          <= START_1;
                     end
                 end
 
@@ -167,13 +187,16 @@ module ctrl (
 
                 START_HOLD: begin
                     scl       <= 1'b1;
-                    drive_low <= 1'b1;   // trzymaj jeszcze START
+                    drive_low <= 1'b1;
+
                     if (op_man_id)
                         state <= LOAD_TX_F8;
                     else if (op_cfg_status)
                         state <= LOAD_TX_B0;
+                    else if (op_read_eeprom)
+                        state <= LOAD_TX_EE_WR;
                     else
-                    state <= STOP_1;
+                        state <= STOP_1;
                 end
 
                 LOAD_TX_F8: begin
@@ -220,6 +243,34 @@ module ctrl (
 
                 LOAD_TX_B1: begin
                     shift_reg      <= 8'hB1;          // Sec/Cfg read
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= READ_BIT_LOW;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_EE_WR: begin
+                    shift_reg      <= 8'hA0;          // EEPROM write
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= LOAD_TX_EE_AH;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_EE_AH: begin
+                    shift_reg      <= mem_addr[15:8]; // high address
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= LOAD_TX_EE_AL;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_EE_AL: begin
+                    shift_reg      <= mem_addr[7:0];  // low address
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= REP_ACK_END;    // potem repeated start
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_EE_RD: begin
+                    shift_reg      <= 8'hA1;          // EEPROM read
                     bit_cnt        <= 3'd7;
                     next_after_ack <= READ_BIT_LOW;
                     state          <= TX_SCL_LOW;
@@ -310,6 +361,8 @@ module ctrl (
                         state <= LOAD_TX_F9;
                     else if (op_cfg_status)
                         state <= LOAD_TX_B1;
+                    else if (op_read_eeprom)
+                        state <= LOAD_TX_EE_RD;
                     else
                         state <= STOP_1;
                 end
@@ -341,6 +394,8 @@ module ctrl (
                             state <= READ_STORE_BYTE;
                         else if (op_cfg_status)
                             state <= READ_CFG_STORE_BYTE;
+                        else if (op_read_eeprom)
+                            state <= READ_EE_STORE_BYTE;
                         else
                             state <= STOP_1;
                     end
@@ -376,6 +431,11 @@ module ctrl (
                     state <= MASTER_ACK_SETUP;
                 end
 
+                READ_EE_STORE_BYTE: begin
+                    read_data <= shift_reg;
+                    state     <= MASTER_ACK_SETUP;
+                end
+
                 // Po 1 i 2 bajcie ACK, po 3 bajcie NACK
                 MASTER_ACK_SETUP: begin
                     scl       <= 1'b0;
@@ -388,15 +448,18 @@ module ctrl (
 
                     if (op_man_id) begin
                         if (read_byte_idx < 2)
-                            drive_low <= 1'b1; // ACK
+                            drive_low <= 1'b1;
                         else
-                            drive_low <= 1'b0; // NACK
+                            drive_low <= 1'b0;
                     end
                     else if (op_cfg_status) begin
                         if (read_byte_idx < 1)
-                            drive_low <= 1'b1; // ACK po 1. bajcie
+                            drive_low <= 1'b1;
                         else
-                            drive_low <= 1'b0; // NACK po 2. bajcie
+                            drive_low <= 1'b0;
+                    end
+                    else if (op_read_eeprom) begin
+                        drive_low <= 1'b0; // NACK od razu po 1 bajcie
                     end
                     else begin
                         drive_low <= 1'b0;
@@ -433,6 +496,9 @@ module ctrl (
                         else begin
                             state <= STOP_1;
                         end
+                    end
+                    else if (op_read_eeprom) begin
+                        state <= STOP_1;
                     end
                     else begin
                         state <= STOP_1;

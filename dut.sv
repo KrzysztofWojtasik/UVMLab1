@@ -6,6 +6,7 @@ module dut (
     input  logic        rw,
     input  logic        read_man_id,
     input  logic        read_cfg_status,
+    input  logic        read_eeprom,
     input  logic [15:0] mem_addr,
     input  logic [7:0]  write_data,
     output logic [7:0]  read_data,
@@ -28,22 +29,23 @@ module dut (
     assign wp = 1'b0;
 
     ctrl u_ctrl (
-        .clk         (clk),
-        .nrst        (nrst),
-        .start       (start),
-        .rw          (rw),
-        .read_man_id (read_man_id),
-        .read_cfg_status(read_cfg_status),
-        .mem_addr    (mem_addr),
-        .write_data  (write_data),
-        .read_data   (read_data),
-        .man_id      (man_id),
-        .cfg_status_hi(cfg_status_hi),
-        .cfg_status_lo(cfg_status_lo),
-        .busy        (busy),
-        .done        (done),
-        .scl         (scl),
-        .sda         (sda)
+        .clk             (clk),
+        .nrst            (nrst),
+        .start           (start),
+        .rw              (rw),
+        .read_man_id     (read_man_id),
+        .read_cfg_status (read_cfg_status),
+        .read_eeprom     (read_eeprom),
+        .mem_addr        (mem_addr),
+        .write_data      (write_data),
+        .read_data       (read_data),
+        .man_id          (man_id),
+        .cfg_status_hi   (cfg_status_hi),
+        .cfg_status_lo   (cfg_status_lo),
+        .busy            (busy),
+        .done            (done),
+        .scl             (scl),
+        .sda             (sda)
     );
 
     M24CSM01 u_eeprom (
