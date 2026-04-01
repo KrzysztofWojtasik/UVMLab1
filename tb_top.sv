@@ -7,6 +7,7 @@ module tb_top (
     output logic        read_man_id,
     output logic        read_cfg_status,
     output logic        read_eeprom,
+    output logic        write_eeprom,
     output logic [15:0] mem_addr,
     output logic [7:0]  write_data,
 
@@ -18,7 +19,6 @@ module tb_top (
     input  logic        done
 );
 
-    // generator zegara
     initial begin
         clk = 1'b0;
         forever #300ns clk = ~clk;
@@ -31,25 +31,22 @@ module tb_top (
         read_man_id     = 1'b0;
         read_cfg_status = 1'b0;
         read_eeprom     = 1'b0;
+        write_eeprom    = 1'b0;
         mem_addr        = 16'h0000;
         write_data      = 8'h00;
 
-        // reset
         #10000ns;
         nrst = 1'b1;
-
         #10000ns;
 
-        // ========================================
-        // 1. Odczyt Manufacturer ID
-        // ========================================
+        // 1. Manufacturer ID
         read_man_id     = 1'b1;
         read_cfg_status = 1'b0;
         read_eeprom     = 1'b0;
+        write_eeprom    = 1'b0;
         start           = 1'b1;
-
         #10000ns;
-        start = 1'b0;
+        start           = 1'b0;
 
         wait(done == 1'b1);
         #10000ns;
@@ -63,16 +60,14 @@ module tb_top (
 
         #10000ns;
 
-        // ========================================
-        // 2. Odczyt Configuration / Status
-        // ========================================
+        // 2. Config / Status
         read_man_id     = 1'b0;
         read_cfg_status = 1'b1;
         read_eeprom     = 1'b0;
+        write_eeprom    = 1'b0;
         start           = 1'b1;
-
         #10000ns;
-        start = 1'b0;
+        start           = 1'b0;
 
         wait(done == 1'b1);
         #10000ns;
@@ -91,26 +86,49 @@ module tb_top (
 
         #10000ns;
 
-        // ========================================
-        // 3. Odczyt zwykłego EEPROM
-        // ========================================
+        // 3. Zapis EEPROM
         mem_addr        = 16'h0010;
+        write_data      = 8'hA5;
         read_man_id     = 1'b0;
         read_cfg_status = 1'b0;
-        read_eeprom     = 1'b1;
+        read_eeprom     = 1'b0;
+        write_eeprom    = 1'b1;
         start           = 1'b1;
-
         #10000ns;
-        start = 1'b0;
+        start           = 1'b0;
 
         wait(done == 1'b1);
         #10000ns;
 
         $display("========================================");
-        $display("EEPROM ADDR     = 0x%04h", mem_addr);
-        $display("EEPROM DATA     = 0x%02h", read_data);
-        $display("busy            = %0b", busy);
-        $display("time            = %0t", $time);
+        $display("EEPROM WRITE ADDR = 0x%04h", mem_addr);
+        $display("EEPROM WRITE DATA = 0x%02h", write_data);
+        $display("busy              = %0b", busy);
+        $display("time              = %0t", $time);
+        $display("========================================");
+
+        // ważne: model ma czas zapisu wewnętrznego tWC
+        #10000000ns;
+
+        // 4. Odczyt EEPROM
+        mem_addr        = 16'h0010;
+        read_man_id     = 1'b0;
+        read_cfg_status = 1'b0;
+        read_eeprom     = 1'b1;
+        write_eeprom    = 1'b0;
+        start           = 1'b1;
+        #10000ns;
+        start           = 1'b0;
+
+        wait(done == 1'b1);
+        #10000ns;
+
+        $display("========================================");
+        $display("EEPROM READ ADDR  = 0x%04h", mem_addr);
+        $display("EEPROM READ DATA  = 0x%02h", read_data);
+        $display("EXPECTED DATA     = 0xA5");
+        $display("busy              = %0b", busy);
+        $display("time              = %0t", $time);
         $display("========================================");
 
         #10000ns;

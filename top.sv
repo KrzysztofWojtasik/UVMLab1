@@ -8,6 +8,7 @@ module top;
     logic        read_man_id;
     logic        read_cfg_status;
     logic        read_eeprom;
+    logic        write_eeprom;
     logic [15:0] mem_addr;
     logic [7:0]  write_data;
 
@@ -26,6 +27,7 @@ module top;
         .read_man_id     (read_man_id),
         .read_cfg_status (read_cfg_status),
         .read_eeprom     (read_eeprom),
+        .write_eeprom    (write_eeprom),
         .mem_addr        (mem_addr),
         .write_data      (write_data),
         .read_data       (read_data),
@@ -44,6 +46,7 @@ module top;
         .read_man_id     (read_man_id),
         .read_cfg_status (read_cfg_status),
         .read_eeprom     (read_eeprom),
+        .write_eeprom    (write_eeprom),
         .mem_addr        (mem_addr),
         .write_data      (write_data),
         .read_data       (read_data),

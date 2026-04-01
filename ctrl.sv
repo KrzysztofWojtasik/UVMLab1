@@ -5,6 +5,7 @@ module ctrl (
     input  logic        read_man_id,
     input  logic        read_cfg_status,
     input  logic        read_eeprom,
+    input  logic        write_eeprom,
 
     input  logic        start,
     input  logic        rw,
@@ -48,6 +49,7 @@ module ctrl (
     LOAD_TX_EE_AL,
     LOAD_TX_EE_RD,
 
+    LOAD_TX_EE_WDATA,
 
     TX_SCL_LOW,
     TX_DATA_SETUP,
@@ -101,6 +103,7 @@ module ctrl (
     logic op_cfg_status;
     logic op_man_id;
     logic op_read_eeprom;
+    logic op_write_eeprom;
 
     // I2C open-drain:
     // 0 -> ciągnij linię do zera
@@ -130,9 +133,10 @@ module ctrl (
             done          <= 1'b0;
             cfg_addr      <= 16'h8800;
 
-            op_man_id     <= 1'b0;
-            op_cfg_status <= 1'b0;
-            op_read_eeprom <= 1'b0;
+            op_man_id       <= 1'b0;
+            op_cfg_status   <= 1'b0;
+            op_read_eeprom  <= 1'b0;
+            op_write_eeprom <= 1'b0;
         end
         else begin
             done <= 1'b0;
@@ -171,6 +175,15 @@ module ctrl (
                         op_read_eeprom <= 1'b1;
                         state          <= START_1;
                     end
+
+                    else if (start && write_eeprom) begin
+                        busy            <= 1'b1;
+                        op_man_id       <= 1'b0;
+                        op_cfg_status   <= 1'b0;
+                        op_read_eeprom  <= 1'b0;
+                        op_write_eeprom <= 1'b1;
+                        state           <= START_1;
+                    end
                 end
 
                 START_1: begin
@@ -193,7 +206,7 @@ module ctrl (
                         state <= LOAD_TX_F8;
                     else if (op_cfg_status)
                         state <= LOAD_TX_B0;
-                    else if (op_read_eeprom)
+                    else if (op_read_eeprom || op_write_eeprom)
                         state <= LOAD_TX_EE_WR;
                     else
                         state <= STOP_1;
@@ -263,16 +276,30 @@ module ctrl (
                 end
 
                 LOAD_TX_EE_AL: begin
-                    shift_reg      <= mem_addr[7:0];  // low address
-                    bit_cnt        <= 3'd7;
-                    next_after_ack <= REP_ACK_END;    // potem repeated start
-                    state          <= TX_SCL_LOW;
+                    shift_reg <= mem_addr[7:0];
+                    bit_cnt   <= 3'd7;
+
+                    if (op_read_eeprom)
+                        next_after_ack <= REP_ACK_END;      // repeated START -> A1
+                    else if (op_write_eeprom)
+                        next_after_ack <= LOAD_TX_EE_WDATA; // od razu data byte
+                    else
+                        next_after_ack <= STOP_1;
+
+                    state <= TX_SCL_LOW;
                 end
 
                 LOAD_TX_EE_RD: begin
                     shift_reg      <= 8'hA1;          // EEPROM read
                     bit_cnt        <= 3'd7;
                     next_after_ack <= READ_BIT_LOW;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_EE_WDATA: begin
+                    shift_reg      <= write_data;
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= STOP_1;   // po ACK danych kończymy STOP
                     state          <= TX_SCL_LOW;
                 end
 
@@ -530,10 +557,13 @@ module ctrl (
                 end
 
                 FINISH: begin
-                     $display("t=%0t FINISH man_id=0x%06h read_data=0x%02h", $time, man_id, read_data);
-                    busy  <= 1'b0;
-                    done  <= 1'b1;
-                    state <= IDLE;
+                    busy            <= 1'b0;
+                    done            <= 1'b1;
+                    op_man_id       <= 1'b0;
+                    op_cfg_status   <= 1'b0;
+                    op_read_eeprom  <= 1'b0;
+                    op_write_eeprom <= 1'b0;
+                    state           <= IDLE;
                 end
 
                 default: begin
