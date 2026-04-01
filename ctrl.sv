@@ -3,11 +3,15 @@ module ctrl (
     input  logic        nrst,
 
     input  logic        read_man_id,
+    input  logic        read_cfg_status,
 
     input  logic        start,
     input  logic        rw,
     input  logic [15:0] mem_addr,
     input  logic [7:0]  write_data,
+
+    
+    
     output logic [7:0]  read_data,
     output logic        busy,
     output logic        done,
@@ -16,8 +20,9 @@ module ctrl (
     inout  wire         sda,
 
 
-    output logic [23:0] man_id
-
+    output logic [23:0] man_id,
+    output logic [7:0]  cfg_status_hi,
+    output logic [7:0]  cfg_status_lo
     
 );
 
@@ -31,6 +36,12 @@ module ctrl (
     LOAD_TX_F8,
     LOAD_TX_A0,
     LOAD_TX_F9,
+
+    LOAD_TX_B0,
+    LOAD_TX_CFG_AH,
+    LOAD_TX_CFG_AL,
+    LOAD_TX_B1,
+
 
     TX_SCL_LOW,
     TX_DATA_SETUP,
@@ -53,6 +64,8 @@ module ctrl (
     READ_SAMPLE,
     READ_NEXT_BIT,
     READ_STORE_BYTE,
+    
+    READ_CFG_STORE_BYTE,
 
     MASTER_ACK_SETUP,
     MASTER_ACK_LOW,
@@ -75,6 +88,10 @@ module ctrl (
     logic [2:0] bit_cnt;
     logic ack_ok;
     logic [1:0] read_byte_idx;    // 0,1,2 dla 3 bajtów ID
+    logic [15:0] cfg_addr;
+
+    logic op_cfg_status;
+    logic op_man_id;
 
     // I2C open-drain:
     // 0 -> ciągnij linię do zera
@@ -102,6 +119,10 @@ module ctrl (
 
             busy          <= 1'b0;
             done          <= 1'b0;
+            cfg_addr      <= 16'h8800;
+
+            op_man_id     <= 1'b0;
+            op_cfg_status <= 1'b0;
         end
         else begin
             done <= 1'b0;
@@ -115,10 +136,20 @@ module ctrl (
                     ack_ok        <= 1'b0;
                     read_byte_idx <= 2'd0;
 
-                    if (start && read_man_id) begin
-                        busy  <= 1'b1;
-                        man_id <= 24'h000000;
-                        state <= START_1;
+                   if (start && read_man_id) begin
+                        busy       <= 1'b1;
+                        man_id     <= 24'h000000;
+                        op_man_id  <= 1'b1;
+                        op_cfg_status <= 1'b0;
+                        state      <= START_1;
+                    end
+                    else if (start && read_cfg_status) begin
+                        busy          <= 1'b1;
+                        cfg_status_hi <= 8'h00;
+                        cfg_status_lo <= 8'h00;
+                        op_man_id     <= 1'b0;
+                        op_cfg_status <= 1'b1;
+                        state         <= START_1;
                     end
                 end
 
@@ -137,7 +168,12 @@ module ctrl (
                 START_HOLD: begin
                     scl       <= 1'b1;
                     drive_low <= 1'b1;   // trzymaj jeszcze START
-                    state     <= LOAD_TX_F8;
+                    if (op_man_id)
+                        state <= LOAD_TX_F8;
+                    else if (op_cfg_status)
+                        state <= LOAD_TX_B0;
+                    else
+                    state <= STOP_1;
                 end
 
                 LOAD_TX_F8: begin
@@ -156,6 +192,34 @@ module ctrl (
 
                 LOAD_TX_F9: begin
                     shift_reg      <= 8'hF9;
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= READ_BIT_LOW;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_B0: begin
+                    shift_reg      <= 8'hB0;          // Sec/Cfg write
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= LOAD_TX_CFG_AH;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_CFG_AH: begin
+                    shift_reg      <= 8'h88;          // config region upper address
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= LOAD_TX_CFG_AL;
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_CFG_AL: begin
+                    shift_reg      <= 8'h00;          // lower address
+                    bit_cnt        <= 3'd7;
+                    next_after_ack <= REP_ACK_END;    // potem repeated start
+                    state          <= TX_SCL_LOW;
+                end
+
+                LOAD_TX_B1: begin
+                    shift_reg      <= 8'hB1;          // Sec/Cfg read
                     bit_cnt        <= 3'd7;
                     next_after_ack <= READ_BIT_LOW;
                     state          <= TX_SCL_LOW;
@@ -241,7 +305,13 @@ module ctrl (
                 REP_START_HOLD: begin
                     scl       <= 1'b1;
                     drive_low <= 1'b1;
-                    state     <= LOAD_TX_F9;
+
+                    if (op_man_id)
+                        state <= LOAD_TX_F9;
+                    else if (op_cfg_status)
+                        state <= LOAD_TX_B1;
+                    else
+                        state <= STOP_1;
                 end
 
                READ_BIT_LOW: begin
@@ -267,7 +337,12 @@ module ctrl (
 
                 READ_NEXT_BIT: begin
                     if (bit_cnt == 0) begin
-                        state <= READ_STORE_BYTE;
+                        if (op_man_id)
+                            state <= READ_STORE_BYTE;
+                        else if (op_cfg_status)
+                            state <= READ_CFG_STORE_BYTE;
+                        else
+                            state <= STOP_1;
                     end
                     else begin
                         bit_cnt <= bit_cnt - 3'd1;
@@ -289,6 +364,18 @@ module ctrl (
                     state <= MASTER_ACK_SETUP;
                 end
 
+                READ_CFG_STORE_BYTE: begin
+                    case (read_byte_idx)
+                        2'd0: cfg_status_hi <= shift_reg;
+                        2'd1: begin
+                            cfg_status_lo <= shift_reg;
+                            read_data     <= shift_reg;
+                        end
+                        default: ;
+                    endcase
+                    state <= MASTER_ACK_SETUP;
+                end
+
                 // Po 1 i 2 bajcie ACK, po 3 bajcie NACK
                 MASTER_ACK_SETUP: begin
                     scl       <= 1'b0;
@@ -296,12 +383,25 @@ module ctrl (
                     state     <= MASTER_ACK_LOW;
                 end
 
-                MASTER_ACK_LOW: begin
+               MASTER_ACK_LOW: begin
                     scl <= 1'b0;
-                    if (read_byte_idx < 2)
-                        drive_low <= 1'b1; // ACK = 0
-                    else
-                        drive_low <= 1'b0; // NACK = puść linię
+
+                    if (op_man_id) begin
+                        if (read_byte_idx < 2)
+                            drive_low <= 1'b1; // ACK
+                        else
+                            drive_low <= 1'b0; // NACK
+                    end
+                    else if (op_cfg_status) begin
+                        if (read_byte_idx < 1)
+                            drive_low <= 1'b1; // ACK po 1. bajcie
+                        else
+                            drive_low <= 1'b0; // NACK po 2. bajcie
+                    end
+                    else begin
+                        drive_low <= 1'b0;
+                    end
+
                     state <= MASTER_ACK_HIGH;
                 end
 
@@ -314,10 +414,25 @@ module ctrl (
                     scl       <= 1'b0;
                     drive_low <= 1'b0;
 
-                    if (read_byte_idx < 2) begin
-                        read_byte_idx <= read_byte_idx + 2'd1;
-                        bit_cnt       <= 3'd7;
-                        state         <= READ_BIT_LOW;
+                    if (op_man_id) begin
+                        if (read_byte_idx < 2) begin
+                            read_byte_idx <= read_byte_idx + 2'd1;
+                            bit_cnt       <= 3'd7;
+                            state         <= READ_BIT_LOW;
+                        end
+                        else begin
+                            state <= STOP_1;
+                        end
+                    end
+                    else if (op_cfg_status) begin
+                        if (read_byte_idx < 1) begin
+                            read_byte_idx <= read_byte_idx + 2'd1;
+                            bit_cnt       <= 3'd7;
+                            state         <= READ_BIT_LOW;
+                        end
+                        else begin
+                            state <= STOP_1;
+                        end
                     end
                     else begin
                         state <= STOP_1;
