@@ -23,7 +23,95 @@ module tb_top (
         forever #300ns clk = ~clk;
     end
 
+    task automatic do_eeprom_write(
+    input logic [15:0] addr,
+    input logic [7:0]  data
+    );
+    begin
+        mem_addr        = addr;
+        write_data      = data;
+
+        read_man_id     = 1'b0;
+        read_cfg_status = 1'b0;
+        read_eeprom     = 1'b0;
+        write_eeprom    = 1'b1;
+
+        #1000ns;
+        start = 1'b1;
+        #10000ns;
+        start = 1'b0;
+
+        wait(done == 1'b1);
+        #10000ns;
+
+        $display("========================================");
+        $display("EEPROM WRITE ADDR = 0x%04h", mem_addr);
+        $display("EEPROM WRITE DATA = 0x%02h", write_data);
+        $display("busy              = %0b", busy);
+        $display("time              = %0t", $time);
+        $display("========================================");
+
+        write_eeprom = 1'b0;
+
+        // tWC modelu EEPROM
+        #10000000ns;
+    end
+    endtask
+
+    task automatic do_eeprom_read(
+    input  logic [15:0] addr,
+    input  logic [7:0]  expected
+    );
+    begin
+        mem_addr        = addr;
+
+        read_man_id     = 1'b0;
+        read_cfg_status = 1'b0;
+        read_eeprom     = 1'b1;
+        write_eeprom    = 1'b0;
+
+        #1000ns;
+        start = 1'b1;
+        #10000ns;
+        start = 1'b0;
+
+        wait(done == 1'b1);
+        #10000ns;
+
+        $display("========================================");
+        $display("EEPROM READ ADDR  = 0x%04h", mem_addr);
+        $display("EEPROM READ DATA  = 0x%02h", read_data);
+        $display("EXPECTED DATA     = 0x%02h", expected);
+        $display("busy              = %0b", busy);
+        $display("time              = %0t", $time);
+
+        if (read_data !== expected) begin
+            $display("[ERROR] EEPROM data mismatch!");
+            $display("        addr     = 0x%04h", mem_addr);
+            $display("        expected = 0x%02h", expected);
+            $display("        got      = 0x%02h", read_data);
+            $fatal;
+        end else begin
+            $display("[OK] EEPROM data correct");
+        end
+
+        $display("========================================");
+
+        read_eeprom = 1'b0;
+
+        #10000ns;
+    end
+    endtask
+
+
     initial begin
+
+        int i;
+        logic [16:0] rand_addr;
+        logic [7:0]  rand_data;
+        logic [7:0]  expected_data;
+        localparam int NUM_RANDOM_TESTS = 20;
+
         nrst            = 1'b0;
         start           = 1'b0;
         read_man_id     = 1'b0;
@@ -84,50 +172,18 @@ module tb_top (
 
         #10000ns;
 
-        // 3. Zapis EEPROM
-        mem_addr        = 16'h0010;
-        write_data      = 8'hA5;
-        read_man_id     = 1'b0;
-        read_cfg_status = 1'b0;
-        read_eeprom     = 1'b0;
-        write_eeprom    = 1'b1;
-        start           = 1'b1;
-        #10000ns;
-        start           = 1'b0;
+        for (i = 0; i < NUM_RANDOM_TESTS; i = i + 1) begin
+            rand_addr = $urandom_range(16'hFFFF, 16'h0000);
+            rand_data = $urandom_range(8'hFF, 8'h00);
 
-        wait(done == 1'b1);
-        #10000ns;
+            $display("========================================");
+            $display("RANDOM EEPROM TEST %0d / %0d", i + 1, NUM_RANDOM_TESTS);
+            $display("ADDR = 0x%04h, DATA = 0x%02h", rand_addr, rand_data);
+            $display("========================================");
 
-        $display("========================================");
-        $display("EEPROM WRITE ADDR = 0x%04h", mem_addr);
-        $display("EEPROM WRITE DATA = 0x%02h", write_data);
-        $display("busy              = %0b", busy);
-        $display("time              = %0t", $time);
-        $display("========================================");
-
-        // ważne: model ma czas zapisu wewnętrznego tWC
-        #10000000ns;
-
-        // 4. Odczyt EEPROM
-        mem_addr        = 16'h0010;
-        read_man_id     = 1'b0;
-        read_cfg_status = 1'b0;
-        read_eeprom     = 1'b1;
-        write_eeprom    = 1'b0;
-        start           = 1'b1;
-        #10000ns;
-        start           = 1'b0;
-
-        wait(done == 1'b1);
-        #10000ns;
-
-        $display("========================================");
-        $display("EEPROM READ ADDR  = 0x%04h", mem_addr);
-        $display("EEPROM READ DATA  = 0x%02h", read_data);
-        $display("EXPECTED DATA     = 0xA5");
-        $display("busy              = %0b", busy);
-        $display("time              = %0t", $time);
-        $display("========================================");
+            do_eeprom_write(rand_addr, rand_data);
+            do_eeprom_read(rand_addr, rand_data);
+        end
 
         #10000ns;
         $finish;
