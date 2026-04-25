@@ -18,6 +18,15 @@ VERIF_LOG   := $(LOGDIR)/verif.log
 ELAB_LOG    := $(LOGDIR)/elab.log
 SIM_LOG     := $(LOGDIR)/sim.log
 
+WAVE        ?= 0
+WAVE_TCL    := wave.tcl
+WAVE_FILE   := waves.wdb
+
+ifeq ($(WAVE),1)
+    XELAB_OPTS += --debug typical
+    XSIM_OPTS  := -tclbatch $(WAVE_TCL)
+endif
+
 .PHONY: all rtl verif elab sim clean logs
 
 all: rtl verif elab sim
@@ -50,4 +59,4 @@ sim: logs
 	@echo "[OK] Simulation done. Log: $(SIM_LOG)"
 
 clean:
-	rm -rf .Xil xsim.dir *.jou *.log *.pb *.wdb webtalk* *~ $(LOGDIR)
+	rm -rf .Xil xsim.dir *.jou *.log *.pb *.wdb webtalk* *~ $(LOGDIR) *:Zone.Identifier
