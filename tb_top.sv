@@ -3,7 +3,6 @@ module tb_top (
     output logic        nrst,
 
     output logic        start,
-    output logic        rw,
     output logic        read_man_id,
     output logic        read_cfg_status,
     output logic        read_eeprom,
@@ -27,7 +26,6 @@ module tb_top (
     initial begin
         nrst            = 1'b0;
         start           = 1'b0;
-        rw              = 1'b0;
         read_man_id     = 1'b0;
         read_cfg_status = 1'b0;
         read_eeprom     = 1'b0;
