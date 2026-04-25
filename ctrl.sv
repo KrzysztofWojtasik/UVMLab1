@@ -8,7 +8,6 @@ module ctrl (
     input  logic        write_eeprom,
 
     input  logic        start,
-    input  logic        rw,
     input  logic [15:0] mem_addr,
     input  logic [7:0]  write_data,
 

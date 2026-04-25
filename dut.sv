@@ -3,7 +3,6 @@ module dut (
     input  logic        nrst,
 
     input  logic        start,
-    input  logic        rw,
     input  logic        read_man_id,
     input  logic        read_cfg_status,
     input  logic        read_eeprom,
@@ -33,7 +32,6 @@ module dut (
         .clk             (clk),
         .nrst            (nrst),
         .start           (start),
-        .rw              (rw),
         .read_man_id     (read_man_id),
         .read_cfg_status (read_cfg_status),
         .read_eeprom     (read_eeprom),
