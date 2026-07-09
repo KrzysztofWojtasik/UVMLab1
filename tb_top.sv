@@ -1,3 +1,7 @@
+import uvm_pkg::*;
+`include "uvm_macros.svh"
+import mem_ops_pkg::*;
+
 module tb_top (
     output logic        clk,
     output logic        nrst,
@@ -44,12 +48,8 @@ module tb_top (
         wait(done == 1'b1);
         #10000ns;
 
-        $display("========================================");
-        $display("EEPROM WRITE ADDR = 0x%04h", mem_addr);
-        $display("EEPROM WRITE DATA = 0x%02h", write_data);
-        $display("busy              = %0b", busy);
-        $display("time              = %0t", $time);
-        $display("========================================");
+        `uvm_info("EEPROM_WRITE", $sformatf("EEPROM WRITE ADDR = 0x%04h, DATA = 0x%02h, busy = %0b, time = %0t",
+                mem_addr, write_data, busy, $time),UVM_LOW)
 
         write_eeprom = 1'b0;
 
@@ -78,24 +78,16 @@ module tb_top (
         wait(done == 1'b1);
         #10000ns;
 
-        $display("========================================");
-        $display("EEPROM READ ADDR  = 0x%04h", mem_addr);
-        $display("EEPROM READ DATA  = 0x%02h", read_data);
-        $display("EXPECTED DATA     = 0x%02h", expected);
-        $display("busy              = %0b", busy);
-        $display("time              = %0t", $time);
+        `uvm_info("EEPROM_READ", $sformatf("EEPROM READ ADDR = 0x%04h, DATA = 0x%02h, EXPECTED = 0x%02h, busy = %0b, time = %0t",
+              mem_addr, read_data, expected, busy, $time),UVM_LOW)
 
         if (read_data !== expected) begin
-            $display("[ERROR] EEPROM data mismatch!");
-            $display("        addr     = 0x%04h", mem_addr);
-            $display("        expected = 0x%02h", expected);
-            $display("        got      = 0x%02h", read_data);
-            $fatal;
+            `uvm_fatal("EEPROM_MISMATCH",$sformatf("EEPROM data mismatch: addr = 0x%04h, expected = 0x%02h, got = 0x%02h",
+              mem_addr, expected, read_data))
         end else begin
-            $display("[OK] EEPROM data correct");
+            `uvm_info("EEPROM_CHECK",  $sformatf("EEPROM data correct: addr = 0x%04h, data = 0x%02h",
+              mem_addr, read_data),UVM_LOW)
         end
-
-        $display("========================================");
 
         read_eeprom = 1'b0;
 
@@ -107,10 +99,13 @@ module tb_top (
     initial begin
 
         int i;
-        logic [16:0] rand_addr;
+        logic [15:0] rand_addr;
         logic [7:0]  rand_data;
         logic [7:0]  expected_data;
         localparam int NUM_RANDOM_TESTS = 20;
+        mem_op_t current_op;
+
+        `uvm_info("HELLO", "Hello World from UVM", UVM_MEDIUM)
 
         nrst            = 1'b0;
         start           = 1'b0;
@@ -137,14 +132,18 @@ module tb_top (
         wait(done == 1'b1);
         #10000ns;
 
-        $display("========================================");
-        $display("Manufacturer ID = 0x%06h", man_id);
-        $display("Last read_data  = 0x%02h", read_data);
-        $display("busy            = %0b", busy);
-        $display("time            = %0t", $time);
-        $display("========================================");
+        current_op = OP_READ_ID;
+        `uvm_info("TEST_OP", $sformatf("Starting operation: %s", current_op.name()), UVM_MEDIUM)
 
+        `uvm_info("MAN_ID", $sformatf("Manufacturer ID = 0x%06h, last read_data = 0x%02h, busy = %0b, time = %0t",
+              man_id, read_data, busy, $time),UVM_LOW)
         #10000ns;
+
+        if (man_id !== 24'h00d0d0) begin
+            `uvm_error("MAN_ID_CHECK", $sformatf("Unexpected Manufacturer ID: expected = 0x00d0d0, got = 0x%06h", man_id)) 
+        end else begin
+            `uvm_info("MAN_ID_CHECK", $sformatf("Manufacturer ID correct: 0x%06h", man_id), UVM_LOW)
+        end
 
         // 2. Config / Status
         read_man_id     = 1'b0;
@@ -158,17 +157,29 @@ module tb_top (
         wait(done == 1'b1);
         #10000ns;
 
-        $display("========================================");
-        $display("CFG_STATUS_HI   = 0x%02h", cfg_status_hi);
-        $display("CFG_STATUS_LO   = 0x%02h", cfg_status_lo);
-        $display("ECS             = %0b", cfg_status_hi[7]);
-        $display("EWPM            = %0b", cfg_status_hi[1]);
-        $display("LOCK            = %0b", cfg_status_hi[0]);
-        $display("SWP             = 0x%02h", cfg_status_lo);
-        $display("Last read_data  = 0x%02h", read_data);
-        $display("busy            = %0b", busy);
-        $display("time            = %0t", $time);
-        $display("========================================");
+        current_op = OP_READ_STATUS;
+        `uvm_info("TEST_OP", $sformatf("Starting operation: %s", current_op.name()), UVM_MEDIUM)
+
+        `uvm_info("CFG_STATUS",
+        $sformatf("CFG_STATUS_HI = 0x%02h, CFG_STATUS_LO = 0x%02h, ECS = %0b, EWPM = %0b, LOCK = %0b, SWP = 0x%02h, Last read_data = 0x%02h, busy = %0b, time = %0t",
+              cfg_status_hi,
+              cfg_status_lo,
+              cfg_status_hi[7],
+              cfg_status_hi[1],
+              cfg_status_hi[0],
+              cfg_status_lo,
+              read_data,
+              busy,
+              $time),
+        UVM_LOW)
+
+        if (cfg_status_hi !== 8'h00 || cfg_status_lo !== 8'h00) begin
+            `uvm_error("CFG_STATUS_CHECK",$sformatf("Unexpected CFG status: expected HI = 0x00, LO = 0x00, got HI = 0x%02h, LO = 0x%02h",
+              cfg_status_hi,
+              cfg_status_lo))
+        end else begin
+            `uvm_info("CFG_STATUS_CHECK","CFG status correct: HI = 0x00, LO = 0x00",UVM_LOW)
+        end
 
         #10000ns;
 
@@ -176,12 +187,15 @@ module tb_top (
             rand_addr = $urandom_range(16'hFFFF, 16'h0000);
             rand_data = $urandom_range(8'hFF, 8'h00);
 
-            $display("========================================");
-            $display("RANDOM EEPROM TEST %0d / %0d", i + 1, NUM_RANDOM_TESTS);
-            $display("ADDR = 0x%04h, DATA = 0x%02h", rand_addr, rand_data);
-            $display("========================================");
+            `uvm_info("RANDOM_TEST", $sformatf("RANDOM EEPROM TEST %0d / %0d, ADDR = 0x%04h, DATA = 0x%02h",
+              i + 1, NUM_RANDOM_TESTS, rand_addr, rand_data),UVM_MEDIUM)
 
+            current_op = OP_WRITE_EEPROM;
+            `uvm_info("TEST_OP", $sformatf("Starting operation: %s", current_op.name()), UVM_MEDIUM)
             do_eeprom_write(rand_addr, rand_data);
+
+            current_op = OP_READ_EEPROM;
+            `uvm_info("TEST_OP", $sformatf("Starting operation: %s", current_op.name()), UVM_MEDIUM)
             do_eeprom_read(rand_addr, rand_data);
         end
 

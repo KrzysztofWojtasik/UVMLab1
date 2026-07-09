@@ -13,6 +13,16 @@ XVLOG_OPTS  := -sv
 XELAB_OPTS  :=
 XSIM_OPTS   := -runall
 
+UVM         ?= 0
+V           ?= UVM_LOW
+
+ifeq ($(UVM),1)
+    XVLOG_OPTS += -L uvm
+    XELAB_OPTS += -L uvm
+    XSIM_OPTS  += -testplusarg UVM_VERBOSITY=$(V)
+    XSIM_OPTS  += -testplusarg UVM_NO_RELNOTES
+endif
+
 LOGDIR      := logs
 RTL_LOG     := $(LOGDIR)/rtl.log
 VERIF_LOG   := $(LOGDIR)/verif.log
@@ -32,7 +42,7 @@ COV_TYPE    := sbct
 
 ifeq ($(WAVE),1)
     XELAB_OPTS += --debug typical
-    XSIM_OPTS  := -tclbatch $(WAVE_TCL)
+    XSIM_OPTS  += -tclbatch $(WAVE_TCL)
 endif
 
 ifeq ($(COV),1)
