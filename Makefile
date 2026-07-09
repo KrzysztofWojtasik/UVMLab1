@@ -91,7 +91,7 @@ ifeq ($(COV),1)
 endif
 
 cov_report: logs cov_dirs
-	@echo "==> Generating code coverage report..."
+	@echo "==> Generating coverage report..."
 	@$(XCRG) -cc_db $(COV_DB) -cc_dir $(COVDIR) -cc_report $(COV_REPORT) > $(COV_LOG) 2>&1 || \
 	( echo "[COV ERROR] See $(COV_LOG)"; cat $(COV_LOG); exit 1 )
 	@echo "[OK] Coverage report done: $(COV_REPORT)/dashboard.html"

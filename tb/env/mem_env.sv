@@ -7,6 +7,7 @@ class mem_env extends uvm_env;
     mem_driver     m_drv;
     mem_monitor    m_mon;
     mem_scoreboard m_scoreboard;
+    mem_coverage   m_coverage;
 
     function new(string name = "mem_env", uvm_component parent = null);
         super.new(name, parent);
@@ -27,6 +28,10 @@ class mem_env extends uvm_env;
         if (m_cfg.scoreboard_enable) begin
             m_scoreboard = mem_scoreboard::type_id::create("m_scoreboard", this);
         end
+
+        if (m_cfg.coverage_enable) begin
+            m_coverage = mem_coverage::type_id::create("m_coverage", this);
+        end
     endfunction
     
     function void connect_phase(uvm_phase phase);
@@ -36,6 +41,10 @@ class mem_env extends uvm_env;
 
         if (m_cfg.scoreboard_enable) begin
             m_mon.analysis_port.connect(m_scoreboard.analysis_imp);
+        end
+
+        if (m_cfg.coverage_enable) begin
+            m_mon.analysis_port.connect(m_coverage.analysis_imp);
         end
     endfunction
 
