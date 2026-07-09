@@ -13,7 +13,7 @@ XVLOG_OPTS  := -sv -i tb
 XELAB_OPTS  :=
 XSIM_OPTS   := -runall
 
-UVM         ?= 0
+UVM         ?= 1
 V           ?= UVM_LOW
 
 TEST 		?= mem_base_test
@@ -23,7 +23,6 @@ ifeq ($(UVM),1)
     XELAB_OPTS += -L uvm
     XSIM_OPTS  += -testplusarg UVM_VERBOSITY=$(V)
     XSIM_OPTS  += -testplusarg UVM_TESTNAME=$(TEST)
-    XSIM_OPTS  += -testplusarg UVM_NO_RELNOTES
 endif
 
 LOGDIR      := logs
