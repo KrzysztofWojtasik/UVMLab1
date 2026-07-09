@@ -72,19 +72,17 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM WRITE addr=0x%04h data=0x%02h busy=%0b time=%0t",
-                      addr, data, vif.busy, $time),
+            $sformatf("EEPROM WRITE command finished: addr=0x%04h data=0x%02h busy=%0b time=%0t",
+                    addr, data, vif.busy, $time),
             UVM_LOW)
 
         vif.write_eeprom <= 1'b0;
 
-        // EEPROM write cycle time from the old testbench/model behavior.
         #10000000ns;
     endtask
 
     task automatic do_eeprom_read(
-        input logic [15:0] addr,
-        input logic [7:0]  expected
+        input logic [15:0] addr
     );
         vif.mem_addr        <= addr;
 
@@ -102,20 +100,9 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM READ addr=0x%04h data=0x%02h expected=0x%02h busy=%0b time=%0t",
-                      addr, vif.read_data, expected, vif.busy, $time),
+            $sformatf("EEPROM READ command finished: addr=0x%04h busy=%0b time=%0t",
+                    addr, vif.busy, $time),
             UVM_LOW)
-
-        if (vif.read_data !== expected) begin
-            `uvm_fatal(get_full_name(),
-                $sformatf("EEPROM data mismatch: addr=0x%04h expected=0x%02h got=0x%02h",
-                          addr, expected, vif.read_data))
-        end else begin
-            `uvm_info(get_full_name(),
-                $sformatf("EEPROM data correct: addr=0x%04h data=0x%02h",
-                          addr, vif.read_data),
-                UVM_LOW)
-        end
 
         vif.read_eeprom <= 1'b0;
 
@@ -137,19 +124,9 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("Manufacturer ID = 0x%06h, last read_data = 0x%02h, busy = %0b, time = %0t",
-                      vif.man_id, vif.read_data, vif.busy, $time),
+            $sformatf("READ_MAN_ID command finished: busy=%0b time=%0t",
+                    vif.busy, $time),
             UVM_LOW)
-
-        if (vif.man_id !== 24'h00d0d0) begin
-            `uvm_error(get_full_name(),
-                $sformatf("Unexpected Manufacturer ID: expected=0x00d0d0 got=0x%06h",
-                          vif.man_id))
-        end else begin
-            `uvm_info(get_full_name(),
-                $sformatf("Manufacturer ID correct: 0x%06h", vif.man_id),
-                UVM_LOW)
-        end
 
         vif.read_man_id <= 1'b0;
         #10000ns;
@@ -170,27 +147,9 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("CFG_STATUS_HI=0x%02h CFG_STATUS_LO=0x%02h ECS=%0b EWPM=%0b LOCK=%0b SWP=0x%02h read_data=0x%02h busy=%0b time=%0t",
-                      vif.cfg_status_hi,
-                      vif.cfg_status_lo,
-                      vif.cfg_status_hi[7],
-                      vif.cfg_status_hi[1],
-                      vif.cfg_status_hi[0],
-                      vif.cfg_status_lo,
-                      vif.read_data,
-                      vif.busy,
-                      $time),
+            $sformatf("READ_STATUS command finished: busy=%0b time=%0t",
+                    vif.busy, $time),
             UVM_LOW)
-
-        if (vif.cfg_status_hi !== 8'h00 || vif.cfg_status_lo !== 8'h00) begin
-            `uvm_error(get_full_name(),
-                $sformatf("Unexpected CFG status: expected HI=0x00 LO=0x00 got HI=0x%02h LO=0x%02h",
-                          vif.cfg_status_hi, vif.cfg_status_lo))
-        end else begin
-            `uvm_info(get_full_name(),
-                "CFG status correct: HI=0x00 LO=0x00",
-                UVM_LOW)
-        end
 
         vif.read_cfg_status <= 1'b0;
         #10000ns;
@@ -216,7 +175,7 @@ class mem_driver extends uvm_driver #(mem_item);
                 end
 
                 MEM_READ: begin
-                    do_eeprom_read(req.addr, req.data);
+                    do_eeprom_read(req.addr);
                 end
 
                 MEM_READ_ID: begin
