@@ -49,6 +49,7 @@ ifeq ($(WAVE),1)
 endif
 
 ifeq ($(COV),1)
+    XVLOG_OPTS += -d FCOV
     XELAB_OPTS += -cc_type $(COV_TYPE) -cc_db $(COV_DB) -cc_dir $(COVDIR)
 endif
 
