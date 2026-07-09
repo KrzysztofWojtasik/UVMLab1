@@ -1,3 +1,3 @@
-mem_ops_pkg.sv
+tb/mem_if.sv
+tb/mem_pkg.sv
 top.sv
-tb_top.sv

@@ -9,17 +9,20 @@ XCRG        := xcrg
 RTL_FLIST   := rtl.f
 VERIF_FLIST := verif.f
 
-XVLOG_OPTS  := -sv
+XVLOG_OPTS  := -sv -i tb
 XELAB_OPTS  :=
 XSIM_OPTS   := -runall
 
 UVM         ?= 0
 V           ?= UVM_LOW
 
+TEST 		?= mem_base_test
+
 ifeq ($(UVM),1)
     XVLOG_OPTS += -L uvm
     XELAB_OPTS += -L uvm
     XSIM_OPTS  += -testplusarg UVM_VERBOSITY=$(V)
+    XSIM_OPTS  += -testplusarg UVM_TESTNAME=$(TEST)
     XSIM_OPTS  += -testplusarg UVM_NO_RELNOTES
 endif
 
@@ -39,6 +42,7 @@ COVDIR      := cov
 COV_DB      := $(SNAPSHOT)
 COV_REPORT  := $(COVDIR)/report
 COV_TYPE    := sbct
+
 
 ifeq ($(WAVE),1)
     XELAB_OPTS += --debug typical

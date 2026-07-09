@@ -1,57 +1,38 @@
+import uvm_pkg::*;
+import mem_pkg::*;
+
 module top;
 
-    logic        clk;
-    logic        nrst;
+    logic clk;
 
-    logic        start;
-    logic        read_man_id;
-    logic        read_cfg_status;
-    logic        read_eeprom;
-    logic        write_eeprom;
-    logic [15:0] mem_addr;
-    logic [7:0]  write_data;
+    mem_if vif(.clk(clk));
 
-    logic [7:0]  read_data;
-    logic [23:0] man_id;
-    logic [7:0]  cfg_status_hi;
-    logic [7:0]  cfg_status_lo;
-    logic        busy;
-    logic        done;
-
-    tb_top u_tb (
-        .clk             (clk),
-        .nrst            (nrst),
-        .start           (start),
-        .read_man_id     (read_man_id),
-        .read_cfg_status (read_cfg_status),
-        .read_eeprom     (read_eeprom),
-        .write_eeprom    (write_eeprom),
-        .mem_addr        (mem_addr),
-        .write_data      (write_data),
-        .read_data       (read_data),
-        .man_id          (man_id),
-        .cfg_status_hi   (cfg_status_hi),
-        .cfg_status_lo   (cfg_status_lo),
-        .busy            (busy),
-        .done            (done)
-    );
+    initial begin
+        clk = 1'b0;
+        forever #300ns clk = ~clk;
+    end
 
     dut u_dut (
-        .clk             (clk),
-        .nrst            (nrst),
-        .start           (start),
-        .read_man_id     (read_man_id),
-        .read_cfg_status (read_cfg_status),
-        .read_eeprom     (read_eeprom),
-        .write_eeprom    (write_eeprom),
-        .mem_addr        (mem_addr),
-        .write_data      (write_data),
-        .read_data       (read_data),
-        .man_id          (man_id),
-        .cfg_status_hi   (cfg_status_hi),
-        .cfg_status_lo   (cfg_status_lo),
-        .busy            (busy),
-        .done            (done)
+        .clk             (vif.clk),
+        .nrst            (vif.nrst),
+        .start           (vif.start),
+        .read_man_id     (vif.read_man_id),
+        .read_cfg_status (vif.read_cfg_status),
+        .read_eeprom     (vif.read_eeprom),
+        .write_eeprom    (vif.write_eeprom),
+        .mem_addr        (vif.mem_addr),
+        .write_data      (vif.write_data),
+        .read_data       (vif.read_data),
+        .man_id          (vif.man_id),
+        .cfg_status_hi   (vif.cfg_status_hi),
+        .cfg_status_lo   (vif.cfg_status_lo),
+        .busy            (vif.busy),
+        .done            (vif.done)
     );
+
+    initial begin
+        uvm_config_db#(virtual mem_if)::set(null, "*", "vif", vif);
+        run_test();
+    end
 
 endmodule
