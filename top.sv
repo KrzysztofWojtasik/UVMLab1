@@ -4,7 +4,6 @@ module top;
     logic        nrst;
 
     logic        start;
-    logic        rw;
     logic        read_man_id;
     logic        read_cfg_status;
     logic        read_eeprom;
@@ -23,7 +22,6 @@ module top;
         .clk             (clk),
         .nrst            (nrst),
         .start           (start),
-        .rw              (rw),
         .read_man_id     (read_man_id),
         .read_cfg_status (read_cfg_status),
         .read_eeprom     (read_eeprom),
@@ -42,7 +40,6 @@ module top;
         .clk             (clk),
         .nrst            (nrst),
         .start           (start),
-        .rw              (rw),
         .read_man_id     (read_man_id),
         .read_cfg_status (read_cfg_status),
         .read_eeprom     (read_eeprom),
