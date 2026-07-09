@@ -4,6 +4,7 @@ class mem_env extends uvm_env;
 
     mem_sequencer m_seqr;
     mem_driver    m_drv;
+    mem_monitor   m_mon;
 
     function new(string name = "mem_env", uvm_component parent = null);
         super.new(name, parent);
@@ -14,6 +15,7 @@ class mem_env extends uvm_env;
 
         m_seqr = mem_sequencer::type_id::create("m_seqr", this);
         m_drv  = mem_driver::type_id::create("m_drv", this);
+        m_mon  = mem_monitor::type_id::create("m_mon", this);
     endfunction
 
     function void connect_phase(uvm_phase phase);

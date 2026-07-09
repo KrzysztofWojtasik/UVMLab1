@@ -21,14 +21,11 @@ class mem_driver extends uvm_driver #(mem_item);
 
         `uvm_info(get_full_name(), "Driving reset", UVM_LOW)
 
-        vif.nrst            <= 1'b0;
-        vif.start           <= 1'b0;
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
-        vif.mem_addr        <= 16'h0000;
-        vif.write_data      <= 8'h00;
+        vif.nrst       <= 1'b0;
+        vif.start      <= 1'b0;
+        vif.op         <= MEM_READ_ID;
+        vif.mem_addr   <= 16'h0000;
+        vif.write_data <= 8'h00;
 
         #10000ns;
         vif.nrst <= 1'b1;
@@ -58,11 +55,8 @@ class mem_driver extends uvm_driver #(mem_item);
         vif.mem_addr        <= addr;
         vif.write_data      <= data;
 
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b1;
-
+        vif.op <= MEM_WRITE;
+        
         #1000ns;
         vif.start <= 1'b1;
         #10000ns;
@@ -72,11 +66,9 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM WRITE command finished: addr=0x%04h data=0x%02h busy=%0b time=%0t",
+            $sformatf("EEPROM WRITE command finished: op=MEM_WRITE addr=0x%04h data=0x%02h busy=%0b time=%0t",
                     addr, data, vif.busy, $time),
             UVM_LOW)
-
-        vif.write_eeprom <= 1'b0;
 
         #10000000ns;
     endtask
@@ -86,11 +78,7 @@ class mem_driver extends uvm_driver #(mem_item);
     );
         vif.mem_addr        <= addr;
 
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b1;
-        vif.write_eeprom    <= 1'b0;
-
+        vif.op <= MEM_READ;
         #1000ns;
         vif.start <= 1'b1;
         #10000ns;
@@ -100,20 +88,13 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM READ command finished: addr=0x%04h busy=%0b time=%0t",
-                    addr, vif.busy, $time),
-            UVM_LOW)
-
-        vif.read_eeprom <= 1'b0;
-
+            $sformatf("EEPROM READ command finished: op=MEM_READ addr=0x%04h busy=%0b time=%0t",
+                    addr, vif.busy, $time), UVM_LOW)
         #10000ns;
     endtask
 
     task automatic do_read_man_id();
-        vif.read_man_id     <= 1'b1;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
+        vif.op <= MEM_READ_ID;
 
         #1000ns;
         vif.start <= 1'b1;
@@ -124,19 +105,15 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("READ_MAN_ID command finished: busy=%0b time=%0t",
-                    vif.busy, $time),
-            UVM_LOW)
+            $sformatf("READ_STATUS command finished: op=MEM_READ_STATUS busy=%0b time=%0t",
+                    vif.busy, $time),UVM_LOW)
 
-        vif.read_man_id <= 1'b0;
         #10000ns;
     endtask
 
-    task automatic do_read_status();
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b1;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
+   task automatic do_read_status();
+
+        vif.op <= MEM_READ_STATUS;
 
         #1000ns;
         vif.start <= 1'b1;
@@ -147,11 +124,10 @@ class mem_driver extends uvm_driver #(mem_item);
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("READ_STATUS command finished: busy=%0b time=%0t",
-                    vif.busy, $time),
-            UVM_LOW)
+    $sformatf("READ_STATUS command finished: op=MEM_READ_STATUS busy=%0b time=%0t",
+              vif.busy, $time),
+    UVM_LOW)
 
-        vif.read_cfg_status <= 1'b0;
         #10000ns;
     endtask
 
