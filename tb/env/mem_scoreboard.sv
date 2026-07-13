@@ -4,10 +4,9 @@ class mem_scoreboard extends uvm_scoreboard;
 
     uvm_analysis_imp #(mem_item, mem_scoreboard) analysis_imp;
 
-    bit [7:0] expected_mem [logic [15:0]];
+    bit [7:0] expected_mem [bit [15:0]];
 
-    bit [7:0] cfg_status_hi;
-    bit [7:0] cfg_status_lo;
+    bit [15:0] cfg_status;
 
     function new(string name = "mem_scoreboard", uvm_component parent = null);
         super.new(name, parent);
@@ -39,7 +38,7 @@ class mem_scoreboard extends uvm_scoreboard;
             end
 
             default: begin
-                `uvm_warning(get_full_name(),
+                `uvm_error(get_full_name(),
                     $sformatf("Unsupported item op in scoreboard: %s", item.op.name()))
             end
 
@@ -47,10 +46,10 @@ class mem_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void check_read_id(mem_item item);
-        if (item.man_id !== 24'h00d0d0) begin
+        if (item.man_id !== EXPECTED_MAN_ID) begin
             `uvm_error(get_full_name(),
-                $sformatf("Manufacturer ID mismatch: expected=0x00d0d0 got=0x%06h",
-                          item.man_id))
+                $sformatf("Manufacturer ID mismatch: expected=0x%06h got=0x%06h",
+                        EXPECTED_MAN_ID, item.man_id))
         end else begin
             `uvm_info(get_full_name(),
                 $sformatf("Manufacturer ID correct: 0x%06h", item.man_id),
@@ -59,41 +58,56 @@ class mem_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void handle_read_status(mem_item item);
-        cfg_status_hi = item.cfg_status_hi;
-        cfg_status_lo = item.cfg_status_lo;
-
+        cfg_status = item.cfg_status;
         `uvm_info(get_full_name(),
-            $sformatf("Stored status: cfg_status_hi=0x%02h cfg_status_lo=0x%02h",
-                      cfg_status_hi, cfg_status_lo),
+            $sformatf("Stored status: cfg_status=0x%04h", cfg_status),
             UVM_LOW)
     endfunction
 
     function void handle_write(mem_item item);
-        expected_mem[item.addr] = item.data;
+        bit [15:0] addr_key;
+
+        if ($isunknown(item.addr)) begin
+            `uvm_error(get_full_name(),
+                $sformatf("Write address contains X/Z: addr=0x%04h", item.addr))
+            return;
+        end
+
+        addr_key = item.addr;
+        expected_mem[addr_key] = item.data;
 
         `uvm_info(get_full_name(),
             $sformatf("Stored expected memory: addr=0x%04h data=0x%02h",
-                      item.addr, item.data),
+                    addr_key, item.data),
             UVM_LOW)
     endfunction
 
     function void check_read(mem_item item);
-        bit [7:0] expected_data;
+        bit [15:0] addr_key;
+        bit [7:0]  expected_data;
 
-        if (expected_mem.exists(item.addr)) begin
-            expected_data = expected_mem[item.addr];
+        if ($isunknown(item.addr)) begin
+            `uvm_error(get_full_name(),
+                $sformatf("Read address contains X/Z: addr=0x%04h", item.addr))
+            return;
+        end
+
+        addr_key = item.addr;
+
+        if (expected_mem.exists(addr_key)) begin
+            expected_data = expected_mem[addr_key];
         end else begin
-            expected_data = 8'hFF;
+            expected_data = EEPROM_DEFAULT_DATA;
         end
 
         if (item.read_data !== expected_data) begin
             `uvm_error(get_full_name(),
                 $sformatf("EEPROM read mismatch: addr=0x%04h expected=0x%02h got=0x%02h",
-                          item.addr, expected_data, item.read_data))
+                        addr_key, expected_data, item.read_data))
         end else begin
             `uvm_info(get_full_name(),
                 $sformatf("EEPROM read correct: addr=0x%04h data=0x%02h",
-                          item.addr, item.read_data),
+                        addr_key, item.read_data),
                 UVM_LOW)
         end
     endfunction

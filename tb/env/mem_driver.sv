@@ -52,83 +52,72 @@ class mem_driver extends uvm_driver #(mem_item);
         input logic [15:0] addr,
         input logic [7:0]  data
     );
-        vif.mem_addr        <= addr;
-        vif.write_data      <= data;
-
-        vif.op <= MEM_WRITE;
-        
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("EEPROM_WRITE");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-            $sformatf("EEPROM WRITE command finished: op=MEM_WRITE addr=0x%04h data=0x%02h busy=%0b time=%0t",
-                    addr, data, vif.busy, $time),
-            UVM_LOW)
-
-        #10000000ns;
+        do_eeprom_access(MEM_WRITE, addr, data);
     endtask
 
     task automatic do_eeprom_read(
         input logic [15:0] addr
     );
-        vif.mem_addr        <= addr;
+        do_eeprom_access(MEM_READ, addr);
+    endtask
 
-        vif.op <= MEM_READ;
+    task automatic do_eeprom_access(
+        input mem_op_t op,
+        input logic [15:0] addr,
+        input logic [7:0]  data = 8'h00
+    );
+        vif.op       <= op;
+        vif.mem_addr <= addr;
+
+        if (op == MEM_WRITE) begin
+            vif.write_data <= data;
+        end
+
         #1000ns;
         vif.start <= 1'b1;
         #10000ns;
         vif.start <= 1'b0;
 
-        wait_done_or_fatal("EEPROM_READ");
+        wait_done_or_fatal(op.name());
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM READ command finished: op=MEM_READ addr=0x%04h busy=%0b time=%0t",
-                    addr, vif.busy, $time), UVM_LOW)
+            $sformatf("EEPROM access command finished: op=%s addr=0x%04h data=0x%02h busy=%0b time=%0t",
+                    op.name(), addr, data, vif.busy, $time),
+            UVM_LOW)
+
+        if (op == MEM_WRITE) begin
+            #10000000ns;
+        end else begin
+            #10000ns;
+        end
+    endtask
+
+    task automatic do_simple_command(input mem_op_t op);
+        vif.op <= op;
+
+        #1000ns;
+        vif.start <= 1'b1;
+        #10000ns;
+        vif.start <= 1'b0;
+
+        wait_done_or_fatal(op.name());
+        #10000ns;
+
+        `uvm_info(get_full_name(),
+            $sformatf("Simple command finished: op=%s busy=%0b time=%0t",
+                    op.name(), vif.busy, $time),
+            UVM_LOW)
+
         #10000ns;
     endtask
 
     task automatic do_read_man_id();
-        vif.op <= MEM_READ_ID;
-
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("READ_MAN_ID");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-            $sformatf("READ_STATUS command finished: op=MEM_READ_STATUS busy=%0b time=%0t",
-                    vif.busy, $time),UVM_LOW)
-
-        #10000ns;
+        do_simple_command(MEM_READ_ID);
     endtask
 
-   task automatic do_read_status();
-
-        vif.op <= MEM_READ_STATUS;
-
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("READ_STATUS");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-    $sformatf("READ_STATUS command finished: op=MEM_READ_STATUS busy=%0b time=%0t",
-              vif.busy, $time),
-    UVM_LOW)
-
-        #10000ns;
+    task automatic do_read_status();
+        do_simple_command(MEM_READ_STATUS);
     endtask
 
     task main_phase(uvm_phase phase);

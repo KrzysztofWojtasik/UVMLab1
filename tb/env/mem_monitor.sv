@@ -32,19 +32,17 @@ class mem_monitor extends uvm_monitor;
             item.data          = vif.write_data;
             item.read_data     = vif.read_data;
             item.man_id        = vif.man_id;
-            item.cfg_status_hi = vif.cfg_status_hi;
-            item.cfg_status_lo = vif.cfg_status_lo;
+            item.cfg_status    = {vif.cfg_status_hi, vif.cfg_status_lo};
 
             `uvm_info(get_full_name(),
-                $sformatf("Observed item: raw_op=0x%0h op=%s addr=0x%04h data=0x%02h read_data=0x%02h man_id=0x%06h status_hi=0x%02h status_lo=0x%02h",
+                $sformatf("Observed item: raw_op=0x%0h op=%s addr=0x%04h data=0x%02h read_data=0x%02h man_id=0x%06h cfg_status=0x%04h",
                         vif.op,
                         item.op.name(),
                         item.addr,
                         item.data,
                         item.read_data,
                         item.man_id,
-                        item.cfg_status_hi,
-                        item.cfg_status_lo),
+                        item.cfg_status),
                 UVM_MEDIUM)
 
             analysis_port.write(item);
