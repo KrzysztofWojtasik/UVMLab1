@@ -21,14 +21,11 @@ class mem_driver extends uvm_driver #(mem_item);
 
         `uvm_info(get_full_name(), "Driving reset", UVM_LOW)
 
-        vif.nrst            <= 1'b0;
-        vif.start           <= 1'b0;
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
-        vif.mem_addr        <= 16'h0000;
-        vif.write_data      <= 8'h00;
+        vif.nrst       <= 1'b0;
+        vif.start      <= 1'b0;
+        vif.op         <= MEM_READ_ID;
+        vif.mem_addr   <= 16'h0000;
+        vif.write_data <= 8'h00;
 
         #10000ns;
         vif.nrst <= 1'b1;
@@ -55,145 +52,72 @@ class mem_driver extends uvm_driver #(mem_item);
         input logic [15:0] addr,
         input logic [7:0]  data
     );
-        vif.mem_addr        <= addr;
-        vif.write_data      <= data;
-
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b1;
-
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("EEPROM_WRITE");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-            $sformatf("EEPROM WRITE addr=0x%04h data=0x%02h busy=%0b time=%0t",
-                      addr, data, vif.busy, $time),
-            UVM_LOW)
-
-        vif.write_eeprom <= 1'b0;
-
-        // EEPROM write cycle time from the old testbench/model behavior.
-        #10000000ns;
+        do_eeprom_access(MEM_WRITE, addr, data);
     endtask
 
     task automatic do_eeprom_read(
-        input logic [15:0] addr,
-        input logic [7:0]  expected
+        input logic [15:0] addr
     );
-        vif.mem_addr        <= addr;
+        do_eeprom_access(MEM_READ, addr);
+    endtask
 
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b1;
-        vif.write_eeprom    <= 1'b0;
+    task automatic do_eeprom_access(
+        input mem_op_t op,
+        input logic [15:0] addr,
+        input logic [7:0]  data = 8'h00
+    );
+        vif.op       <= op;
+        vif.mem_addr <= addr;
+
+        if (op == MEM_WRITE) begin
+            vif.write_data <= data;
+        end
 
         #1000ns;
         vif.start <= 1'b1;
         #10000ns;
         vif.start <= 1'b0;
 
-        wait_done_or_fatal("EEPROM_READ");
+        wait_done_or_fatal(op.name());
         #10000ns;
 
         `uvm_info(get_full_name(),
-            $sformatf("EEPROM READ addr=0x%04h data=0x%02h expected=0x%02h busy=%0b time=%0t",
-                      addr, vif.read_data, expected, vif.busy, $time),
+            $sformatf("EEPROM access command finished: op=%s addr=0x%04h data=0x%02h busy=%0b time=%0t",
+                    op.name(), addr, data, vif.busy, $time),
             UVM_LOW)
 
-        if (vif.read_data !== expected) begin
-            `uvm_fatal(get_full_name(),
-                $sformatf("EEPROM data mismatch: addr=0x%04h expected=0x%02h got=0x%02h",
-                          addr, expected, vif.read_data))
+        if (op == MEM_WRITE) begin
+            #10000000ns;
         end else begin
-            `uvm_info(get_full_name(),
-                $sformatf("EEPROM data correct: addr=0x%04h data=0x%02h",
-                          addr, vif.read_data),
-                UVM_LOW)
+            #10000ns;
         end
+    endtask
 
-        vif.read_eeprom <= 1'b0;
+    task automatic do_simple_command(input mem_op_t op);
+        vif.op <= op;
+
+        #1000ns;
+        vif.start <= 1'b1;
+        #10000ns;
+        vif.start <= 1'b0;
+
+        wait_done_or_fatal(op.name());
+        #10000ns;
+
+        `uvm_info(get_full_name(),
+            $sformatf("Simple command finished: op=%s busy=%0b time=%0t",
+                    op.name(), vif.busy, $time),
+            UVM_LOW)
 
         #10000ns;
     endtask
 
     task automatic do_read_man_id();
-        vif.read_man_id     <= 1'b1;
-        vif.read_cfg_status <= 1'b0;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
-
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("READ_MAN_ID");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-            $sformatf("Manufacturer ID = 0x%06h, last read_data = 0x%02h, busy = %0b, time = %0t",
-                      vif.man_id, vif.read_data, vif.busy, $time),
-            UVM_LOW)
-
-        if (vif.man_id !== 24'h00d0d0) begin
-            `uvm_error(get_full_name(),
-                $sformatf("Unexpected Manufacturer ID: expected=0x00d0d0 got=0x%06h",
-                          vif.man_id))
-        end else begin
-            `uvm_info(get_full_name(),
-                $sformatf("Manufacturer ID correct: 0x%06h", vif.man_id),
-                UVM_LOW)
-        end
-
-        vif.read_man_id <= 1'b0;
-        #10000ns;
+        do_simple_command(MEM_READ_ID);
     endtask
 
     task automatic do_read_status();
-        vif.read_man_id     <= 1'b0;
-        vif.read_cfg_status <= 1'b1;
-        vif.read_eeprom     <= 1'b0;
-        vif.write_eeprom    <= 1'b0;
-
-        #1000ns;
-        vif.start <= 1'b1;
-        #10000ns;
-        vif.start <= 1'b0;
-
-        wait_done_or_fatal("READ_STATUS");
-        #10000ns;
-
-        `uvm_info(get_full_name(),
-            $sformatf("CFG_STATUS_HI=0x%02h CFG_STATUS_LO=0x%02h ECS=%0b EWPM=%0b LOCK=%0b SWP=0x%02h read_data=0x%02h busy=%0b time=%0t",
-                      vif.cfg_status_hi,
-                      vif.cfg_status_lo,
-                      vif.cfg_status_hi[7],
-                      vif.cfg_status_hi[1],
-                      vif.cfg_status_hi[0],
-                      vif.cfg_status_lo,
-                      vif.read_data,
-                      vif.busy,
-                      $time),
-            UVM_LOW)
-
-        if (vif.cfg_status_hi !== 8'h00 || vif.cfg_status_lo !== 8'h00) begin
-            `uvm_error(get_full_name(),
-                $sformatf("Unexpected CFG status: expected HI=0x00 LO=0x00 got HI=0x%02h LO=0x%02h",
-                          vif.cfg_status_hi, vif.cfg_status_lo))
-        end else begin
-            `uvm_info(get_full_name(),
-                "CFG status correct: HI=0x00 LO=0x00",
-                UVM_LOW)
-        end
-
-        vif.read_cfg_status <= 1'b0;
-        #10000ns;
+        do_simple_command(MEM_READ_STATUS);
     endtask
 
     task main_phase(uvm_phase phase);
@@ -216,7 +140,7 @@ class mem_driver extends uvm_driver #(mem_item);
                 end
 
                 MEM_READ: begin
-                    do_eeprom_read(req.addr, req.data);
+                    do_eeprom_read(req.addr);
                 end
 
                 MEM_READ_ID: begin

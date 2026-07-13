@@ -2,7 +2,8 @@ class mem_base_test extends uvm_test;
 
     `uvm_component_utils(mem_base_test)
 
-    mem_env m_env;
+    mem_config m_cfg;
+    mem_env    m_env;
 
     function new(string name = "mem_base_test", uvm_component parent = null);
         super.new(name, parent);
@@ -10,6 +11,18 @@ class mem_base_test extends uvm_test;
 
     function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+
+        m_cfg = mem_config::type_id::create("m_cfg");
+
+        m_cfg.scoreboard_enable = 1'b1;
+
+    `ifdef FCOV
+        m_cfg.coverage_enable = 1'b1;
+    `else
+        m_cfg.coverage_enable = 1'b0;
+    `endif
+
+        uvm_config_db#(mem_config)::set(this, "*", "cfg", m_cfg);
 
         m_env = mem_env::type_id::create("m_env", this);
     endfunction
@@ -19,6 +32,9 @@ class mem_base_test extends uvm_test;
 
         uvm_top.set_timeout(500ms, 1);
         uvm_top.print_topology();
+
+        `uvm_info(get_full_name(), "Printing mem_config", UVM_LOW)
+        m_cfg.print();
     endfunction
 
     task main_phase(uvm_phase phase);
