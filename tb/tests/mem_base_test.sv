@@ -30,7 +30,7 @@ class mem_base_test extends uvm_test;
     function void end_of_elaboration_phase(uvm_phase phase);
         super.end_of_elaboration_phase(phase);
 
-        uvm_top.set_timeout(500ms, 1);
+        uvm_top.set_timeout(2s, 1);
         uvm_top.print_topology();
 
         `uvm_info(get_full_name(), "Printing mem_config", UVM_LOW)

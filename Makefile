@@ -21,6 +21,10 @@ TEST 		?= mem_base_test
 SANITY_TEST ?= mem_direct_test
 SANITY_V    ?= UVM_LOW
 
+REGRESSION_LIST ?= regressions/lab6_regression.txt
+REGRESSION_V    ?= UVM_LOW
+REGRESSION_COV  ?= 0
+
 ifeq ($(UVM),1)
     XVLOG_OPTS += -L uvm
     XELAB_OPTS += -L uvm
@@ -56,7 +60,7 @@ ifeq ($(COV),1)
     XELAB_OPTS += -cc_type $(COV_TYPE) -cc_db $(COV_DB) -cc_dir $(COVDIR)
 endif
 
-.PHONY: all rtl verif elab sim sanity cov_report clean logs cov_dirs
+.PHONY: all rtl verif elab sim sanity regression cov_report clean logs cov_dirs
 
 all: rtl verif elab sim
 
@@ -104,6 +108,25 @@ cov_report: logs cov_dirs
 	@$(XCRG) -cc_db $(COV_DB) -cc_dir $(COVDIR) -cc_report $(COV_REPORT) > $(COV_LOG) 2>&1 || \
 	( echo "[COV ERROR] See $(COV_LOG)"; cat $(COV_LOG); exit 1 )
 	@echo "[OK] Coverage report done: $(COV_REPORT)/dashboard.html"
+
+regression:
+	@echo "==> Running regression from $(REGRESSION_LIST)"
+	@test -f $(REGRESSION_LIST) || (echo "[REGRESSION ERROR] Missing $(REGRESSION_LIST)" && false)
+	@mkdir -p logs/regression
+	@set -e; \
+	while read test_name; do \
+		if [ -z "$$test_name" ]; then continue; fi; \
+		case "$$test_name" in \#*) continue ;; esac; \
+		echo "==> Regression test: $$test_name"; \
+		$(MAKE) clean >/dev/null; \
+		$(MAKE) UVM=1 TEST=$$test_name V=$(REGRESSION_V) COV=$(REGRESSION_COV) >/dev/null || exit 1; \
+		mkdir -p logs/regression; \
+		cp logs/sim.log logs/regression/$$test_name.log; \
+		grep -q "UVM_ERROR :    0" logs/sim.log || (echo "[REGRESSION ERROR] UVM_ERROR in $$test_name" && exit 1); \
+		grep -q "UVM_FATAL :    0" logs/sim.log || (echo "[REGRESSION ERROR] UVM_FATAL in $$test_name" && exit 1); \
+		echo "[OK] $$test_name"; \
+	done < $(REGRESSION_LIST)
+	@echo "[OK] Regression passed"
 
 clean:
 	rm -rf .Xil xsim.dir *.jou *.log *.pb *.wdb webtalk* *~ $(LOGDIR) $(COVDIR) *:Zone.Identifier
