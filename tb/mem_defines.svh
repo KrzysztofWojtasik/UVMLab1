@@ -11,4 +11,12 @@ typedef enum logic [1:0] {
     MEM_READ
 } mem_op_t;
 
+typedef enum logic [2:0] {
+    LEN_SINGLE,
+    LEN_SHORT,
+    LEN_MEDIUM,
+    LEN_LONG,
+    LEN_MAX
+} mem_len_t;
+
 `endif
