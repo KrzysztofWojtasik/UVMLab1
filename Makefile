@@ -18,6 +18,9 @@ V           ?= UVM_LOW
 
 TEST 		?= mem_base_test
 
+SANITY_TEST ?= mem_direct_test
+SANITY_V    ?= UVM_LOW
+
 ifeq ($(UVM),1)
     XVLOG_OPTS += -L uvm
     XELAB_OPTS += -L uvm
@@ -53,7 +56,7 @@ ifeq ($(COV),1)
     XELAB_OPTS += -cc_type $(COV_TYPE) -cc_db $(COV_DB) -cc_dir $(COVDIR)
 endif
 
-.PHONY: all rtl verif elab sim cov_report clean logs cov_dirs
+.PHONY: all rtl verif elab sim sanity cov_report clean logs cov_dirs
 
 all: rtl verif elab sim
 
@@ -89,6 +92,12 @@ sim: logs
 ifeq ($(COV),1)
 	@$(MAKE) cov_report
 endif
+
+sanity:
+	@echo "==> Running sanity check..."
+	@$(MAKE) clean
+	@$(MAKE) UVM=1 TEST=$(SANITY_TEST) V=$(SANITY_V) COV=0
+	@echo "[OK] Sanity check passed with TEST=$(SANITY_TEST)"
 
 cov_report: logs cov_dirs
 	@echo "==> Generating coverage report..."
